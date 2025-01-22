@@ -35,33 +35,35 @@ public class Monitor()
         client = new InfluxDBClient("http://10.80.1.15:8086", token);
     }
 
-    private void DataReceived(object sender, SerialDataReceivedEventArgs e)
+    private async void DataReceived(object sender, SerialDataReceivedEventArgs e)
     {
         var serialPort = (SerialPort)sender;
         var json = serialPort.ReadLine();
-        Console.WriteLine(json);
+        Console.WriteLine($"{DateTime.UtcNow} {json}");
 
         try
         {
-            Data? data = JsonConvert.DeserializeObject<Data>(json);
-            var point = PointData
-              .Measurement("Arduino")
-              .Tag("Device", "Arduino1")
-              .Field("Temperature", data?.Temperature)
-              .Field("Humidity", data?.Humidity)
-              .Field("Pir", data?.Pir)
-              .Field("Brightness", data?.Brightness)
-              .Field("Mic", data?.Mic)
-              .Timestamp(DateTime.UtcNow, WritePrecision.Ns);
-
-            using (var writeApi = client.GetWriteApi())
+            var data = JsonConvert.DeserializeObject<Data>(json);
+            if (data != null)
             {
-                writeApi.WritePoint(point, bucket, org);
+                var point = PointData
+                    .Measurement("Arduino")
+                    .Tag("Device", "Arduino1")
+                    .Field("Temperature", data.Temperature)
+                    .Field("Humidity", data.Humidity)
+                    .Field("Pir", data.Pir)
+                    .Field("Brightness", data.Brightness)
+                    .Field("Mic", data.Mic)
+                    .Timestamp(DateTime.UtcNow, WritePrecision.Ns);
+
+                var writeApi = client?.GetWriteApiAsync();
+                if (writeApi != null)
+                    await writeApi.WritePointAsync(point, bucket, org);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Exception: " + ex.Message);
+            Console.WriteLine($"Exception: {ex.Message}");
         }
     }
 }
